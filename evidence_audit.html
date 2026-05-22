@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ChronoAI — Evidence Audit Tool</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=JetBrains+Mono:wght@400;500;700&family=Exo+2:wght@300;400;600&display=swap');
+  :root {
+    --bg:#000;--teal:#00c8c8;--teal-dim:#007a7a;--teal-glow:rgba(0,200,200,0.15);
+    --teal-faint:rgba(0,200,200,0.05);--red:#ff4444;--red-dim:rgba(255,68,68,0.1);
+    --yellow:#ffc107;--yellow-dim:rgba(255,193,7,0.1);--green:#00e676;
+    --text:#e0e0e0;--text-dim:#555;--border:rgba(0,200,200,0.18);
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:'Exo 2',sans-serif;min-height:100vh;}
+  body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(0,200,200,0.025) 1px,transparent 1px),linear-gradient(90deg,rgba(0,200,200,0.025) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0;}
+  .wrap{position:relative;z-index:1;max-width:860px;margin:0 auto;padding:16px 16px 60px;}
+
+  .header{text-align:center;padding:24px 0 20px;border-bottom:1px solid var(--border);margin-bottom:20px;}
+  .header-eyebrow{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--teal-dim);letter-spacing:4px;margin-bottom:8px;}
+  .header h1{font-family:'Orbitron',monospace;font-size:22px;color:var(--teal);text-shadow:0 0 24px rgba(0,200,200,0.35);margin-bottom:6px;}
+  .header-sub{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-dim);letter-spacing:1px;}
+
+  /* Provider config */
+  .config-panel{border:1px solid #1a1a1a;background:rgba(255,255,255,0.01);padding:14px 16px;margin-bottom:16px;}
+  .config-title{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text-dim);letter-spacing:2px;margin-bottom:12px;}
+  .config-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;}
+  @media(max-width:600px){.config-grid{grid-template-columns:1fr;}}
+  .config-field label{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text-dim);letter-spacing:1px;display:block;margin-bottom:5px;}
+  .config-field select,.config-field input{width:100%;background:#050505;border:1px solid #222;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:10px;padding:7px 10px;outline:none;transition:border-color 0.2s;}
+  .config-field select:focus,.config-field input:focus{border-color:var(--teal-dim);}
+  .config-field input::placeholder{color:#333;}
+  .provider-note{font-family:'JetBrains Mono',monospace;font-size:9px;color:#444;margin-top:8px;line-height:1.6;}
+  .provider-note a{color:var(--teal-dim);text-decoration:none;}
+  .provider-note a:hover{color:var(--teal);}
+
+  /* Mode */
+  .mode-bar{display:flex;gap:8px;margin-bottom:14px;}
+  .mode-btn{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1px;padding:7px 14px;border:1px solid #333;background:transparent;color:#555;cursor:pointer;transition:all 0.2s;}
+  .mode-btn.active{border-color:var(--teal);color:var(--teal);background:var(--teal-faint);}
+  .mode-btn:hover:not(.active){border-color:#444;color:#888;}
+
+  /* Input */
+  .input-label{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-dim);letter-spacing:1.5px;margin-bottom:8px;display:flex;align-items:center;gap:12px;}
+  .input-label span{flex:1;height:1px;background:#111;display:block;}
+  textarea{width:100%;background:#050505;border:1px solid #222;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:12px;line-height:1.6;padding:14px;resize:vertical;outline:none;transition:border-color 0.2s;min-height:180px;margin-bottom:14px;}
+  textarea:focus{border-color:var(--teal-dim);}
+  textarea::placeholder{color:#2a2a2a;}
+
+  /* Speaker config */
+  .speaker-config{display:none;margin-bottom:12px;padding:12px 14px;border:1px solid #1a1a1a;background:rgba(255,255,255,0.008);}
+  .speaker-config.visible{display:block;}
+  .speaker-rows{display:flex;flex-direction:column;gap:6px;margin-top:8px;}
+  .speaker-row{display:flex;gap:8px;align-items:center;}
+  .speaker-row input{background:#0a0a0a;border:1px solid #1a1a1a;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:10px;padding:5px 10px;outline:none;flex:1;}
+  .speaker-row select{background:#0a0a0a;border:1px solid #1a1a1a;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:10px;padding:5px 8px;cursor:pointer;}
+
+  /* Controls */
+  .controls{display:flex;gap:8px;margin-bottom:20px;align-items:center;}
+  .btn{font-family:'Orbitron',monospace;font-size:10px;letter-spacing:1.5px;padding:9px 20px;border:1px solid;cursor:pointer;background:transparent;transition:all 0.2s;}
+  .btn-run{border-color:var(--teal);color:var(--teal);}
+  .btn-run:hover:not(:disabled){background:var(--teal-glow);box-shadow:0 0 16px rgba(0,200,200,0.2);}
+  .btn-clear{border-color:#333;color:#666;}
+  .btn-clear:hover:not(:disabled){border-color:#555;color:#999;}
+  .btn-export{border-color:#333;color:#666;}
+  .btn-export:hover:not(:disabled){border-color:var(--teal-dim);color:var(--teal-dim);}
+  .btn:disabled{opacity:0.3;cursor:not-allowed;}
+  .char-count{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text-dim);margin-left:auto;}
+
+  .status-line{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--teal-dim);letter-spacing:1px;min-height:20px;margin-bottom:18px;display:flex;align-items:center;gap:8px;}
+  .dots{display:flex;gap:3px;}
+  .dots span{width:4px;height:4px;border-radius:50%;background:var(--teal-dim);animation:dp 1.2s infinite;}
+  .dots span:nth-child(2){animation-delay:0.2s;}
+  .dots span:nth-child(3){animation-delay:0.4s;}
+  @keyframes dp{0%,80%,100%{opacity:.2;transform:scale(.8)}40%{opacity:1;transform:scale(1)}}
+
+  /* Results */
+  .results{display:flex;flex-direction:column;gap:14px;}
+  .segment{border:1px solid #1a1a1a;overflow:hidden;}
+  .seg-header{padding:8px 14px;display:flex;align-items:center;gap:12px;border-bottom:1px solid #0d0d0d;background:rgba(255,255,255,0.01);}
+  .seg-speaker{font-family:'Orbitron',monospace;font-size:10px;letter-spacing:1px;}
+  .seg-tag{font-family:'JetBrains Mono',monospace;font-size:8px;padding:2px 8px;border-radius:1px;}
+  .tag-ai{border:1px solid rgba(0,200,200,0.3);color:var(--teal);background:rgba(0,200,200,0.05);}
+  .tag-human{border:1px solid rgba(255,193,7,0.3);color:var(--yellow);background:rgba(255,193,7,0.05);}
+  .tag-unknown{border:1px solid #222;color:#555;}
+  .seg-claims-count{margin-left:auto;font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text-dim);}
+  .seg-text{padding:10px 14px;font-size:12px;color:#888;line-height:1.65;border-bottom:1px solid #0d0d0d;font-family:'Exo 2',sans-serif;max-height:80px;overflow:hidden;position:relative;cursor:pointer;}
+  .seg-text.expanded{max-height:none;}
+  .seg-text:not(.expanded)::after{content:'▾ show more';position:absolute;bottom:6px;right:14px;font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text-dim);}
+  .audit-results{padding:10px 14px 12px;}
+  .audit-clear{display:flex;align-items:center;gap:8px;padding:4px 0;}
+  .audit-clear-icon{color:var(--green);font-size:13px;}
+  .audit-clear-text{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--green);}
+  .claims-list{display:flex;flex-direction:column;gap:6px;}
+  .claim-row{display:flex;gap:10px;align-items:flex-start;padding:7px 0;border-bottom:1px solid #0d0d0d;}
+  .claim-row:last-child{border-bottom:none;}
+  .risk-badge{font-family:'JetBrains Mono',monospace;font-size:8px;padding:3px 6px;white-space:nowrap;border-radius:1px;margin-top:1px;min-width:46px;text-align:center;}
+  .r-high{background:rgba(255,68,68,0.18);color:var(--red);border:1px solid rgba(255,68,68,0.25);}
+  .r-med{background:rgba(255,193,7,0.14);color:var(--yellow);border:1px solid rgba(255,193,7,0.25);}
+  .r-low{background:rgba(0,230,118,0.08);color:var(--green);border:1px solid rgba(0,230,118,0.15);}
+  .claim-body{flex:1;}
+  .claim-quote{font-size:11px;color:#ccc;line-height:1.45;margin-bottom:3px;}
+  .claim-meta{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text-dim);}
+  .summary-bar{display:flex;gap:12px;padding:12px 14px;border:1px solid #1a1a1a;background:rgba(255,255,255,0.008);align-items:center;flex-wrap:wrap;}
+  .s-stat{font-family:'JetBrains Mono',monospace;font-size:10px;}
+  .s-high{color:var(--red);}
+  .s-med{color:var(--yellow);}
+  .s-low{color:var(--green);}
+  .s-dim{color:var(--text-dim);}
+  .verdict{margin-left:auto;font-family:'Orbitron',monospace;font-size:9px;letter-spacing:1px;padding:4px 12px;border:1px solid;}
+  .v-clear{border-color:rgba(0,230,118,0.3);color:var(--green);}
+  .v-warn{border-color:rgba(255,193,7,0.3);color:var(--yellow);}
+  .v-risk{border-color:rgba(255,68,68,0.3);color:var(--red);}
+  .error-box{border:1px solid rgba(255,68,68,0.3);background:var(--red-dim);padding:12px 14px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--red);margin-bottom:14px;line-height:1.6;}
+  .error-box a{color:var(--red);text-decoration:underline;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="header">
+    <div class="header-eyebrow">CHRONOAI SOLUTIONS — OPEN SOURCE RESEARCH TOOLS</div>
+    <h1>EVIDENCE AUDIT TOOL</h1>
+    <div class="header-sub">verifies sourcing · not truth · unsourced = unverifiable</div>
+  </div>
+
+  <!-- Provider Config -->
+  <div class="config-panel">
+    <div class="config-title">▸ API CONFIGURATION — bring your own key</div>
+    <div class="config-grid">
+      <div class="config-field">
+        <label>PROVIDER</label>
+        <select id="provider" onchange="updateProviderUI()">
+          <option value="groq">Groq (free tier)</option>
+          <option value="openai">OpenAI</option>
+          <option value="anthropic">Anthropic</option>
+        </select>
+      </div>
+      <div class="config-field">
+        <label>MODEL</label>
+        <select id="model">
+          <option value="llama-3.3-70b-versatile">llama-3.3-70b-versatile</option>
+        </select>
+      </div>
+      <div class="config-field">
+        <label>API KEY</label>
+        <input type="password" id="apiKey" placeholder="paste your API key here">
+      </div>
+    </div>
+    <div class="provider-note" id="providerNote">
+      Groq free tier — get a key at <a href="https://console.groq.com" target="_blank">console.groq.com</a>.
+      Your key is never stored or transmitted anywhere except directly to the provider API.
+    </div>
+  </div>
+
+  <!-- Mode -->
+  <div class="mode-bar">
+    <button class="mode-btn active" onclick="setMode('single')" id="modeA">SINGLE BLOCK</button>
+    <button class="mode-btn" onclick="setMode('transcript')" id="modeB">RELAY TRANSCRIPT</button>
+  </div>
+
+  <div class="input-label">▸ PASTE TEXT TO AUDIT <span></span></div>
+  <textarea id="inputText" placeholder="Paste any text, AI response, article excerpt, or relay transcript here..." oninput="updateCount()"></textarea>
+
+  <div class="speaker-config" id="speakerConfig">
+    <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text-dim);letter-spacing:2px;">▸ SPEAKER CLASSIFICATION</div>
+    <div class="speaker-rows">
+      <div class="speaker-row"><input placeholder="Speaker name (e.g. INSTANCE A)" id="sp0"><select id="sp0t"><option value="ai">AI</option><option value="human">HUMAN</option><option value="unknown">UNKNOWN</option></select></div>
+      <div class="speaker-row"><input placeholder="Speaker name (e.g. INSTANCE B)" id="sp1"><select id="sp1t"><option value="ai">AI</option><option value="human">HUMAN</option><option value="unknown">UNKNOWN</option></select></div>
+      <div class="speaker-row"><input placeholder="Speaker name (e.g. HUMAN)" id="sp2"><select id="sp2t"><option value="ai">AI</option><option value="human" selected>HUMAN</option><option value="unknown">UNKNOWN</option></select></div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button class="btn btn-run" id="runBtn" onclick="runAudit()">RUN AUDIT</button>
+    <button class="btn btn-clear" onclick="clearAll()">CLEAR</button>
+    <button class="btn btn-export" id="exportBtn" disabled onclick="exportResults()">⬇ EXPORT</button>
+    <div class="char-count" id="charCount">0 chars</div>
+  </div>
+
+  <div class="status-line" id="statusLine"></div>
+  <div id="errorBox"></div>
+  <div id="resultsArea"></div>
+
+</div>
+<script>
+const PROVIDERS = {
+  groq: {
+    url: 'https://api.groq.com/openai/v1/chat/completions',
+    models: ['llama-3.3-70b-versatile','llama-3.1-8b-instant','mixtral-8x7b-32768'],
+    note: 'Groq free tier — get a key at <a href="https://console.groq.com" target="_blank">console.groq.com</a>. Your key is never stored or transmitted anywhere except directly to the provider API.',
+    authHeader: k => `Bearer ${k}`,
+    format: 'openai'
+  },
+  openai: {
+    url: 'https://api.openai.com/v1/chat/completions',
+    models: ['gpt-4o-mini','gpt-4o','gpt-3.5-turbo'],
+    note: 'OpenAI — get a key at <a href="https://platform.openai.com" target="_blank">platform.openai.com</a>. Your key is never stored or transmitted anywhere except directly to the provider API.',
+    authHeader: k => `Bearer ${k}`,
+    format: 'openai'
+  },
+  anthropic: {
+    url: null,
+    models: ['claude-haiku-4-5-20251001','claude-sonnet-4-20250514'],
+    note: '⚠ Anthropic blocks direct browser API calls (CORS). To use Anthropic, deploy the server proxy version: <a href="https://github.com/michaelfullmer/ChronoAI-Evidence-Audit" target="_blank">see README</a>.',
+    authHeader: k => k,
+    format: 'anthropic'
+  }
+};
+
+const AUDIT_SYSTEM = `You are an evidence audit system. Analyze the provided text and classify each factual claim.
+
+For each claim found, return a JSON array where each object has:
+- "claim": short paraphrase (max 15 words)
+- "type": "TECHNICAL" | "PERFORMANCE_NARRATIVE" | "OPINION"
+- "risk": "HIGH" | "MEDIUM" | "LOW"
+- "note": one sentence explanation
+
+RULES:
+- PERFORMANCE_NARRATIVE: any metric, percentage, benchmark, improvement figure → HIGH risk if unsourced
+- TECHNICAL: code/circuit facts, system behavior claims → MEDIUM risk if unsourced  
+- OPINION: interpretation, framing, editorial judgment → LOW risk
+- Vague phrases like "studies show" or "experts agree" are NOT sources — flag them
+- Output ONLY valid JSON array. No preamble, no markdown fences. If no claims, output [].`;
+
+let mode = 'single';
+let lastResults = null;
+
+const el = id => document.getElementById(id);
+const esc = s => (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+function updateProviderUI(){
+  const p = el('provider').value;
+  const prov = PROVIDERS[p];
+  const modelSel = el('model');
+  modelSel.innerHTML = prov.models.map(m=>`<option value="${m}">${m}</option>`).join('');
+  el('providerNote').innerHTML = prov.note;
+}
+
+function setMode(m){
+  mode=m;
+  el('modeA').classList.toggle('active',m==='single');
+  el('modeB').classList.toggle('active',m==='transcript');
+  el('speakerConfig').classList.toggle('visible',m==='transcript');
+  el('inputText').placeholder = m==='single'
+    ? 'Paste any text, AI response, or article excerpt here...'
+    : 'Paste relay transcript. Format: SPEAKER NAME: message\n\nINSTANCE A: ...\nINSTANCE B: ...';
+}
+
+function updateCount(){
+  el('charCount').textContent = el('inputText').value.length.toLocaleString()+' chars';
+}
+
+function setStatus(html){ el('statusLine').innerHTML=html; }
+function clearError(){ el('errorBox').innerHTML=''; }
+
+function showError(msg){
+  el('errorBox').innerHTML=`<div class="error-box">${msg}</div>`;
+}
+
+function getSpeakerMap(){
+  const m={};
+  for(let i=0;i<3;i++){
+    const n=el(`sp${i}`).value.trim();
+    if(n) m[n.toLowerCase()]=el(`sp${i}t`).value;
+  }
+  return m;
+}
+
+function parseTranscript(text){
+  const speakerMap=getSpeakerMap();
+  const lines=text.split('\n');
+  const segs=[];
+  let cur=null;
+  lines.forEach(line=>{
+    const match=line.match(/^([A-Z][A-Z0-9 _\-]*?):\s+(.+)/);
+    if(match){
+      if(cur) segs.push(cur);
+      const speaker=match[1].trim();
+      cur={speaker,type:speakerMap[speaker.toLowerCase()]||'unknown',text:match[2]};
+    } else if(cur&&line.trim()) cur.text+='\n'+line;
+  });
+  if(cur) segs.push(cur);
+  return segs.length>0?segs:[{speaker:'TEXT',type:'unknown',text}];
+}
+
+async function callAPI(text){
+  const provider=el('provider').value;
+  const apiKey=el('apiKey').value.trim();
+  const model=el('model').value;
+  const prov=PROVIDERS[provider];
+
+  if(!apiKey) throw new Error('API key required — paste your key in the configuration panel above.');
+  if(provider==='anthropic') throw new Error('Anthropic blocks browser CORS requests. Switch to Groq (free) or OpenAI, or deploy the server proxy version. <a href="https://github.com/michaelfullmer/ChronoAI-Evidence-Audit" target="_blank">See README</a>.');
+
+  const body = {
+    model,
+    max_tokens: 800,
+    messages: [
+      {role:'system',content:AUDIT_SYSTEM},
+      {role:'user',content:text}
+    ]
+  };
+
+  const r = await fetch(prov.url,{
+    method:'POST',
+    headers:{
+      'Content-Type':'application/json',
+      'Authorization': prov.authHeader(apiKey)
+    },
+    body:JSON.stringify(body)
+  });
+
+  if(!r.ok){
+    const err=await r.text();
+    throw new Error(`API error ${r.status}: ${err.slice(0,200)}`);
+  }
+
+  const data=await r.json();
+  const raw=data.choices?.[0]?.message?.content||'[]';
+  const clean=raw.replace(/```json|```/g,'').trim();
+  try{ return JSON.parse(clean); } catch(e){ return []; }
+}
+
+async function runAudit(){
+  const text=el('inputText').value.trim();
+  if(!text){setStatus('⚠ paste some text first');return;}
+  clearError();
+  el('runBtn').disabled=true;
+  el('exportBtn').disabled=true;
+  el('resultsArea').innerHTML='';
+  lastResults=null;
+
+  const segments=mode==='transcript'?parseTranscript(text):[{speaker:'TEXT',type:'unknown',text}];
+  let allClaims=0,highCount=0,medCount=0,segResults=[];
+
+  for(let i=0;i<segments.length;i++){
+    const seg=segments[i];
+    setStatus(`<div class="dots"><span></span><span></span><span></span></div> auditing ${seg.speaker} (${i+1}/${segments.length})...`);
+    let claims=[];
+    try{ claims=await callAPI(seg.text); }
+    catch(e){
+      showError(e.message);
+      setStatus('');
+      el('runBtn').disabled=false;
+      return;
+    }
+    claims.sort((a,b)=>({HIGH:0,MEDIUM:1,LOW:2}[a.risk]||0)-({HIGH:0,MEDIUM:1,LOW:2}[b.risk]||0));
+    claims.forEach(c=>{allClaims++;if(c.risk==='HIGH')highCount++;if(c.risk==='MEDIUM')medCount++;});
+    segResults.push({...seg,claims});
+    renderSegment(seg,claims,i);
+  }
+
+  renderSummary(allClaims,highCount,medCount,segments.length);
+  setStatus(`▸ audit complete — ${allClaims} claim${allClaims!==1?'s':''} across ${segments.length} segment${segments.length!==1?'s':''}`);
+  lastResults={segments:segResults,totals:{allClaims,highCount,medCount}};
+  el('runBtn').disabled=false;
+  el('exportBtn').disabled=false;
+}
+
+function renderSegment(seg,claims,idx){
+  const ra=el('resultsArea');
+  const typeClass=seg.type==='ai'?'tag-ai':seg.type==='human'?'tag-human':'tag-unknown';
+  const speakerColor=seg.type==='ai'?'var(--teal)':seg.type==='human'?'var(--yellow)':'#555';
+  const claimsHtml=claims.length===0
+    ?`<div class="audit-clear"><span class="audit-clear-icon">✓</span><span class="audit-clear-text">NO HIGH-RISK CLAIMS — AUDIT CLEAR</span></div>`
+    :`<div class="claims-list">${claims.map(c=>{
+      const rc=c.risk==='HIGH'?'r-high':c.risk==='MEDIUM'?'r-med':'r-low';
+      return `<div class="claim-row"><span class="risk-badge ${rc}">${c.risk}</span><div class="claim-body"><div class="claim-quote">${esc(c.claim)}</div><div class="claim-meta">${c.type} · ${esc(c.note||'')}</div></div></div>`;
+    }).join('')}</div>`;
+
+  const div=document.createElement('div');
+  div.className='segment';
+  div.innerHTML=`
+    <div class="seg-header">
+      <span class="seg-speaker" style="color:${speakerColor}">${esc(seg.speaker)}</span>
+      <span class="seg-tag ${typeClass}">${seg.type.toUpperCase()}</span>
+      <span class="seg-claims-count">${claims.length} CLAIM${claims.length!==1?'S':''}</span>
+    </div>
+    <div class="seg-text" id="st-${idx}" onclick="this.classList.toggle('expanded')">${esc(seg.text).replace(/\n/g,'<br>')}</div>
+    <div class="audit-results">${claimsHtml}</div>`;
+  ra.appendChild(div);
+}
+
+function renderSummary(total,high,med,segs){
+  const ra=el('resultsArea');
+  const verdict=high>0?'v-risk':med>0?'v-warn':'v-clear';
+  const vtext=high>0?'HIGH RISK':med>0?'REVIEW NEEDED':'CLEAR';
+  const div=document.createElement('div');
+  div.className='summary-bar';
+  div.innerHTML=`
+    <span class="s-stat s-high">HIGH: ${high}</span>
+    <span class="s-stat s-med">MEDIUM: ${med}</span>
+    <span class="s-stat s-low">LOW: ${total-high-med}</span>
+    <span class="s-stat s-dim">TOTAL: ${total} across ${segs} segment${segs!==1?'s':''}</span>
+    <span class="verdict ${verdict}">${vtext}</span>`;
+  ra.insertBefore(div,ra.firstChild);
+}
+
+function clearAll(){
+  el('inputText').value='';
+  el('resultsArea').innerHTML='';
+  el('statusLine').innerHTML='';
+  el('exportBtn').disabled=true;
+  el('charCount').textContent='0 chars';
+  clearError();
+  lastResults=null;
+}
+
+function exportResults(){
+  if(!lastResults)return;
+  let out=`CHRONOAI EVIDENCE AUDIT REPORT\nDate: ${new Date().toLocaleString()}\nProvider: ${el('provider').value} / ${el('model').value}\n${'─'.repeat(60)}\n\n`;
+  out+=`SUMMARY: ${lastResults.totals.allClaims} claims | HIGH: ${lastResults.totals.highCount} | MEDIUM: ${lastResults.totals.medCount}\n\n`;
+  lastResults.segments.forEach(s=>{
+    out+=`SPEAKER: ${s.speaker} [${s.type.toUpperCase()}]\n`;
+    out+=`TEXT: ${s.text.slice(0,200)}${s.text.length>200?'...':''}\n`;
+    if(s.claims.length===0){out+=`AUDIT: CLEAR\n`;}
+    else{s.claims.forEach(c=>{out+=`  [${c.risk}] ${c.type}: ${c.claim}\n        → ${c.note}\n`;});}
+    out+='\n';
+  });
+  const blob=new Blob([out],{type:'text/plain'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download=`audit_${Date.now()}.txt`;
+  a.click();URL.revokeObjectURL(url);
+}
+</script>
+</body>
+</html>
